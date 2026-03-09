@@ -1,5 +1,5 @@
 import { Navigate, Outlet } from 'react-router-dom';
-import { useAuthStore } from '../store/auth.store';
+import { useAuthStore } from '../zud/auth/auth.store';
 
 interface ProtectedRouteProps {
   requiredRole?: string;
@@ -10,10 +10,13 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   requiredRole,
   requiredPermission,
 }) => {
-  const { isAuthenticated, user } = useAuthStore((s) => ({
-    isAuthenticated: s.isAuthenticated,
-    user: s.user,
-  }));
+  const isInitialized = useAuthStore((s) => s.isInitialized);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const user = useAuthStore((s) => s.user);
+
+  if (!isInitialized) {
+    return null;
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
@@ -29,6 +32,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   ) {
     return <Navigate to="/dashboard" replace />;
   }
+  
 
   return <Outlet />;
 };

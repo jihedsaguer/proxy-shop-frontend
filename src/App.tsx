@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import Router from './app/router';
-import { useAuthStore } from './store/auth.store';
+import { useAuthStore } from './zud/auth/auth.store';
 
 function App() {
   useEffect(() => {

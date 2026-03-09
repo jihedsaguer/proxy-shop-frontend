@@ -1,11 +1,9 @@
 import { Link, Outlet } from 'react-router-dom';
-import { useAuthStore } from '../store/auth.store';
+import { useAuthStore } from '../zud/auth/auth.store';
 
 const Layout: React.FC = () => {
-  const { user, logout } = useAuthStore((s: any) => ({
-    user: s.user,
-    logout: s.logout,
-  }));
+  const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
 
   const perms = user?.role.permissions.map((p: any) => p.action) || [];
 

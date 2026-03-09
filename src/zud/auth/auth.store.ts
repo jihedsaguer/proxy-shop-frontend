@@ -1,30 +1,20 @@
 import { create } from 'zustand';
-import type { AuthResponse, User } from '../types';
-import { request } from '../lib/api-client';
-
-interface AuthState {
-  user: User | null;
-  accessToken: string | null;
-  refreshToken: string | null;
-  isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (data: { email: string; password: string }) => Promise<void>;
-  logout: () => void;
-  refresh: () => Promise<AuthResponse>;
-  initializeFromStorage: () => Promise<void>;
-}
+import type { AuthResponse, User } from '../../types';
+import type { AuthState } from './types';
+import { request } from '../../lib/api-client';
 
 export const useAuthStore = create<AuthState>((
-  set: (partial: Partial<AuthState> | ((state: AuthState) => Partial<AuthState>)) => void,
-  get: () => AuthState,
+  set,
+  get,
 ) => ({
   user: null,
   accessToken: null,
   refreshToken: null,
   isAuthenticated: false,
+  isInitialized: false,
 
   login: async (email: string, password: string) => {
-    const res: AuthResponse = await request('/auth/login', {
+    const res = await request('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
@@ -33,24 +23,29 @@ export const useAuthStore = create<AuthState>((
       refreshToken: res.refreshToken,
       user: res.user,
       isAuthenticated: true,
+      isInitialized: true,
     });
     localStorage.setItem('accessToken', res.accessToken);
     localStorage.setItem('refreshToken', res.refreshToken);
   },
 
-  register: async (data: { email: string; password: string }) => {
-    const res: AuthResponse = await request('/auth/register', {
+  register: async (data: {
+    email: string;
+    password: string;
+    firstName: string;
+    lastName: string;
+    phone?: string;
+  }) => {
+    await request('/auth/register', {
       method: 'POST',
       body: JSON.stringify(data),
     });
+
     set({
-      accessToken: res.accessToken,
-      refreshToken: res.refreshToken,
-      user: res.user,
-      isAuthenticated: true,
+      user: null,
+      isAuthenticated: false,
+      isInitialized: true,
     });
-    localStorage.setItem('accessToken', res.accessToken);
-    localStorage.setItem('refreshToken', res.refreshToken);
   },
 
   logout: () => {
@@ -59,6 +54,7 @@ export const useAuthStore = create<AuthState>((
       accessToken: null,
       refreshToken: null,
       isAuthenticated: false,
+      isInitialized: true,
     });
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
@@ -69,7 +65,7 @@ export const useAuthStore = create<AuthState>((
     if (!state.refreshToken) {
       throw new Error('no refresh token');
     }
-    // perform fetch directly to avoid recursion in request helper
+
     const url = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '') + '/auth/refresh';
     const resp = await fetch(url, {
       method: 'POST',
@@ -78,13 +74,17 @@ export const useAuthStore = create<AuthState>((
       },
       body: JSON.stringify({ refreshToken: state.refreshToken }),
     });
+
     if (!resp.ok) {
       throw new Error('refresh failed');
     }
-    const res: AuthResponse = await resp.json();
+
+    const res = (await resp.json()) as AuthResponse;
     set({
       accessToken: res.accessToken,
       refreshToken: res.refreshToken,
+      user: res.user,
+      isAuthenticated: true,
     });
     localStorage.setItem('accessToken', res.accessToken);
     localStorage.setItem('refreshToken', res.refreshToken);
@@ -94,19 +94,21 @@ export const useAuthStore = create<AuthState>((
   initializeFromStorage: async () => {
     const accessToken = localStorage.getItem('accessToken');
     const refreshToken = localStorage.getItem('refreshToken');
+
     if (accessToken && refreshToken) {
       set({
         accessToken,
         refreshToken,
-        isAuthenticated: true,
       });
       try {
         await get().refresh();
-        const me = await request('/auth/me');
-        set({ user: me as User });
+        const me = (await request('/auth/me')) as User;
+        set({ user: me, isAuthenticated: true });
       } catch {
         get().logout();
       }
     }
+
+    set({ isInitialized: true });
   },
 }));
