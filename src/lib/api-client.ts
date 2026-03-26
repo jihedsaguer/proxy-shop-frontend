@@ -41,12 +41,17 @@ async function updateTokens(accessToken: string, refreshToken: string) {
   }
 }
 
+function getValidToken(key: string): string | null {
+  const val = localStorage.getItem(key);
+  return val && val !== 'null' && val !== 'undefined' ? val : null;
+}
+
 export async function request(input: string, init: RequestInit = {}) {
   const url = input.startsWith('http') ? input : `${baseUrl}${input}`;
   const headers = new Headers(init.headers || {});
   headers.set('Content-Type', 'application/json');
 
-  const accessToken = localStorage.getItem('accessToken');
+  const accessToken = getValidToken('accessToken');
   if (accessToken) {
     headers.set('Authorization', `Bearer ${accessToken}`);
   }
@@ -60,7 +65,7 @@ export async function request(input: string, init: RequestInit = {}) {
       throw await parseError(response);
     }
 
-    const refreshToken = localStorage.getItem('refreshToken');
+    const refreshToken = getValidToken('refreshToken');
     if (!refreshToken) {
       await ensureLogout();
       throw await parseError(response);
@@ -73,11 +78,12 @@ export async function request(input: string, init: RequestInit = {}) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ refreshToken }),
+body: JSON.stringify({ refreshToken: refreshToken }),
       });
 
       if (!refreshResp.ok) {
-        throw new Error('refresh failed');
+        const errorText = await refreshResp.text();
+        throw new Error(`Refresh failed with status ${refreshResp.status}: ${errorText}`);
       }
 
       const refreshData = (await refreshResp.json()) as { accessToken: string; refreshToken: string };
@@ -92,7 +98,7 @@ export async function request(input: string, init: RequestInit = {}) {
     // retry original request
     const retryHeaders = new Headers(init.headers || {});
     retryHeaders.set('Content-Type', 'application/json');
-    const newAccessToken = localStorage.getItem('accessToken');
+    const newAccessToken = getValidToken('accessToken');
     if (newAccessToken) {
       retryHeaders.set('Authorization', `Bearer ${newAccessToken}`);
     }

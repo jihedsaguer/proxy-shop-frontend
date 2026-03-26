@@ -25,8 +25,12 @@ export const useAuthStore = create<AuthState>((
       isAuthenticated: true,
       isInitialized: true,
     });
-    localStorage.setItem('accessToken', res.accessToken);
-    localStorage.setItem('refreshToken', res.refreshToken);
+    if (res.accessToken && typeof res.accessToken === 'string' && res.accessToken !== 'null') {
+      localStorage.setItem('accessToken', res.accessToken);
+    }
+    if (res.refreshToken && typeof res.refreshToken === 'string' && res.refreshToken !== 'null') {
+      localStorage.setItem('refreshToken', res.refreshToken);
+    }
   },
 
   register: async (data: {
@@ -62,7 +66,8 @@ export const useAuthStore = create<AuthState>((
 
   refresh: async () => {
     const state = get();
-    if (!state.refreshToken) {
+    const refreshToken = state.refreshToken || localStorage.getItem('refreshToken');
+    if (!refreshToken || refreshToken === 'null' || refreshToken === 'undefined') {
       throw new Error('no refresh token');
     }
 
@@ -72,11 +77,12 @@ export const useAuthStore = create<AuthState>((
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ refreshToken: state.refreshToken }),
+      body: JSON.stringify({ refreshToken: refreshToken }),
     });
 
     if (!resp.ok) {
-      throw new Error('refresh failed');
+      const errorText = await resp.text();
+      throw new Error(`Refresh failed with status ${resp.status}: ${errorText}`);
     }
 
     const res = (await resp.json()) as AuthResponse;
@@ -95,7 +101,7 @@ export const useAuthStore = create<AuthState>((
     const accessToken = localStorage.getItem('accessToken');
     const refreshToken = localStorage.getItem('refreshToken');
 
-    if (accessToken && refreshToken) {
+    if (accessToken && accessToken !== 'null' && accessToken !== 'undefined' && refreshToken && refreshToken !== 'null' && refreshToken !== 'undefined') {
       set({
         accessToken,
         refreshToken,

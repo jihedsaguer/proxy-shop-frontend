@@ -7,31 +7,42 @@ import {
 } from 'react-router-dom';
 import ProtectedRoute from '../components/ProtectedRoute';
 import Layout from '../components/Layout';
+import { ROUTES_CONFIG } from '../config/routes';
 
-import HomePage from '../pages/HomePage';
-import LoginPage from '../pages/auth/LoginPage';
-import RegisterPage from '../pages/auth/RegisterPage';
-import DashboardPage from '../pages/dashboard/DashboardPage';
-import UsersPage from '../pages/users/UsersPage';
-import RolesPage from '../pages/roles/RolesPage';
-import PermissionsPage from '../pages/permissions/PermissionsPage';
-
+/**
+ * Main Router Component
+ * Routes are divided into:
+ * - Public routes (home, login, register)
+ * - Protected routes (require authentication and specific roles)
+ */
 const Router: React.FC = () => (
   <BrowserRouter>
     <Routes>
-      <Route path="/" element={<HomePage />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
+      {/* Public Routes */}
+      {ROUTES_CONFIG.filter((r) => r.isPublic).map((route) => (
+        <Route
+          key={route.path}
+          path={route.path}
+          element={<route.component />}
+        />
+      ))}
 
+      {/* Protected Routes - requires authentication and role validation */}
       <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/users" element={<UsersPage />} />
-          <Route path="/roles" element={<RolesPage />} />
-          <Route path="/permissions" element={<PermissionsPage />} />
+          {ROUTES_CONFIG.filter((r) => r.isAuthRequired && !r.isPublic).map(
+            (route) => (
+              <Route
+                key={route.path}
+                path={route.path}
+                element={<route.component />}
+              />
+            )
+          )}
         </Route>
       </Route>
 
+      {/* Catch all - redirect to home */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   </BrowserRouter>
